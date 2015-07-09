@@ -23,16 +23,18 @@ class BloomFilterBuilderTest extends FunSuite with Assertions {
       new BloomFilterBuilder(
         sc,
         probOfFalsePositive,
-        windowSize,
-        reference)
+        windowSize)
 
-    val bloomFilter = bloomfilterBuilder.createBloomFilter()
+    val bloomFilter = bloomfilterBuilder.createBloomFilter(reference)
 
     val first30bases = scala.io.Source.fromFile(reference).getLines().drop(1).next().take(windowSize)
     assert(bloomFilter.contains(first30bases).isTrue)
     assert(!bloomFilter.contains("Z" * windowSize).isTrue)
-    //println(bloomFilter)
+  }
 
+  test("loadAligment"){
+    import org.bdgenomics.adam.rdd.ADAMContext._
+    val reads = sc.loadAlignments("2-5pM-3h_S3_L001_I2_001.fastq.bam.adam")
   }
 
 }

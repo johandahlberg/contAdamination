@@ -6,16 +6,16 @@ import com.twitter.algebird.BloomFilterMonoid
 import com.twitter.algebird.BF
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
+import org.bdgenomics.adam.rdd.ADAMContext
 import org.bdgenomics.adam.rdd.ADAMContext._
 import org.bdgenomics.formats.avro.NucleotideContigFragment
 
 /**
  * Created by dahljo on 7/9/15.
  */
-class BloomFilterBuilder(sparkContext: SparkContext,
-                         probabablityOfFalsePositive: Double,
-                         windowSize: Int,
-                         reference: File) {
+class BloomFilterBuilder(sparkContext: ADAMContext,
+    probabablityOfFalsePositive: Double,
+    windowSize: Int) {
 
   case class BloomFilterConfig(numHashes: Int, width: Int, seed: Int)
 
@@ -35,7 +35,7 @@ class BloomFilterBuilder(sparkContext: SparkContext,
     windows
   }
 
-  def createBloomFilter(): BF = {
+  def createBloomFilter(reference: File): BF = {
     val bloomFilterConfig = createBloomFilterConfig(probabablityOfFalsePositive)
     val bloomFilterMonind =
       BloomFilterMonoid(bloomFilterConfig.numHashes, bloomFilterConfig.width, bloomFilterConfig.seed)
