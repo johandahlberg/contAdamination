@@ -47,10 +47,4 @@ object Contadamination extends App {
   val results = reads.aggregate(contaminationFilters)(ContaminationFilterUtils.seqOp, ContaminationFilterUtils.combOp)
 
   results.foreach(println)
-
-  //fold over reads
-  // bf collection map map read
-
-  // for each returning bloom filter print results...0
-
 }
