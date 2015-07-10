@@ -1,6 +1,7 @@
 package contadamination.results
 
 import com.twitter.algebird.BF
+import org.apache.spark.rdd.RDD
 import org.bdgenomics.formats.avro.AlignmentRecord
 
 /**
@@ -11,8 +12,13 @@ object ContaminationFilterUtils {
   def add(x: ContaminationFilter, y: ContaminationFilter) =
     x.copy(totalNbrOfHits = x.totalNbrOfHits + y.totalNbrOfHits, hits = x.hits + y.hits)
 
-  def seqOp(filters: Array[ContaminationFilter], read: AlignmentRecord): Array[ContaminationFilter] = {
-    filters.map(filter => filter.query(read.getSequence))
+  def seqOp(windowSize: Int)(filters: Array[ContaminationFilter], read: AlignmentRecord): Array[ContaminationFilter] = {
+    val windows = read.getSequence.sliding(windowSize)
+    for {
+      filter <- filters
+      window <- windows
+    } yield
+      filter.query(read.getSequence)
   }
 
   def combOp(x: Array[ContaminationFilter], y: Array[ContaminationFilter]) = {

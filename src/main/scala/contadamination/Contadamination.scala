@@ -44,7 +44,7 @@ object Contadamination extends App {
       )
     }
 
-  val results = reads.aggregate(contaminationFilters)(ContaminationFilterUtils.seqOp, ContaminationFilterUtils.combOp)
+  val results = reads.aggregate(contaminationFilters)(ContaminationFilterUtils.seqOp(windowSize), ContaminationFilterUtils.combOp)
 
   results.foreach(println)
 }
