@@ -1,6 +1,6 @@
 package contadamination.test.utils
 
-import org.scalatest.{Assertions, FunSuite}
+import org.scalatest.{ Assertions, FunSuite }
 
 /**
  * Created by dahljo on 7/10/15.

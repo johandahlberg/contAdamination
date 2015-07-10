@@ -33,5 +33,4 @@ class BloomFilterBuilderTest extends ContadaminationSuite {
     assert(!bloomFilter.contains("Z" * windowSize).isTrue)
   }
 
-
 }

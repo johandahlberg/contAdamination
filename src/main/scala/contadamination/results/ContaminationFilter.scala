@@ -18,8 +18,7 @@ object ContaminationFilterUtils {
     for {
       filter <- filters
       window <- windows
-    } yield
-      filter.query(readSequence)
+    } yield filter.query(readSequence)
   }
 
   def combOp(x: Array[ContaminationFilter], y: Array[ContaminationFilter]) = {
