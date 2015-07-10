@@ -3,7 +3,7 @@ package contadamination
 import java.io.File
 
 import contadamination.bloom.BloomFilterBuilder
-import contadamination.results.{ ContaminationFilterFactory, ContaminationFilterUtils, ContaminationFilter }
+import contadamination.results.{ ContaminationFilterUtils, ContaminationFilter }
 import org.apache.spark.{ SparkConf, SparkContext }
 import org.bdgenomics.adam.rdd.ADAMContext
 import org.bdgenomics.formats.avro.AlignmentRecord
@@ -49,19 +49,11 @@ class ContadaminationCommand(protected val args: ContadaminationArgs) extends BD
       args.windowSize)
 
     val contaminationFilters =
-      ContaminationFilterFactory.
+      ContaminationFilterUtils.
         createContaminationFilters(args.referencePaths, bloomFilterBuilder)
 
-    val seqOp =
-      (filters: Array[ContaminationFilter], read: AlignmentRecord) =>
-        ContaminationFilterUtils.seqOp(args.windowSize)(filters, read.getSequence)
-
-    val combOp =
-      (x: Array[ContaminationFilter], y: Array[ContaminationFilter]) =>
-        ContaminationFilterUtils.combOp(x, y)
-
-    val results = reads.
-      aggregate(contaminationFilters)(seqOp, combOp)
+    val results = ContaminationFilterUtils.
+      queryReadsAgainstFilters(args.windowSize, contaminationFilters, reads)
 
     results.foreach(println)
   }
@@ -92,19 +84,11 @@ object Contadamination extends App {
     windowSize)
 
   val contaminationFilters =
-    ContaminationFilterFactory.
+    ContaminationFilterUtils.
       createContaminationFilters(referencePaths, bloomFilterBuilder)
 
-  val seqOp =
-    (filters: Array[ContaminationFilter], read: AlignmentRecord) =>
-      ContaminationFilterUtils.seqOp(windowSize)(filters, read.getSequence)
-
-  val combOp =
-    (x: Array[ContaminationFilter], y: Array[ContaminationFilter]) =>
-      ContaminationFilterUtils.combOp(x, y)
-
-  val results = reads.
-    aggregate(contaminationFilters)(seqOp, combOp)
+  val results = ContaminationFilterUtils.
+    queryReadsAgainstFilters(windowSize, contaminationFilters, reads)
 
   results.foreach(println)
 }
