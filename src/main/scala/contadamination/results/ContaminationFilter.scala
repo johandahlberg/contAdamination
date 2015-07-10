@@ -4,6 +4,8 @@ import java.io.File
 
 import com.twitter.algebird.BF
 import contadamination.bloom.BloomFilterBuilder
+import org.apache.spark.rdd.RDD
+import org.bdgenomics.formats.avro.AlignmentRecord
 
 /**
  * Created by dahljo on 7/9/15.
@@ -26,9 +28,17 @@ object ContaminationFilterUtils {
     x.zip(y).map { tuple => add(tuple._1, tuple._2) }
   }
 
-}
+  def queryReadsAgainstFilters(windowSize: Int, contaminationFilters: Array[ContaminationFilter], reads: RDD[AlignmentRecord]): Array[ContaminationFilter] = {
+    val queryReadOperationWithWindowSize =
+      (filters: Array[ContaminationFilter], read: AlignmentRecord) =>
+        ContaminationFilterUtils.seqOp(windowSize)(filters, read.getSequence)
 
-object ContaminationFilterFactory {
+    val results = reads.
+      aggregate(contaminationFilters)(
+        queryReadOperationWithWindowSize, ContaminationFilterUtils.combOp)
+
+    results
+  }
 
   def createContaminationFilters(referencePaths: Array[String], bloomFilterBuilder: BloomFilterBuilder): Array[ContaminationFilter] = {
     // Collection of bloom filters
@@ -46,7 +56,9 @@ object ContaminationFilterFactory {
     contaminationFilters
   }
 
+
 }
+
 
 case class ContaminationFilter(bloomFilter: BF, organism: String, totalNbrOfQueries: Int = 0, hits: Int = 0) {
 
