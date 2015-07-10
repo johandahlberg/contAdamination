@@ -29,11 +29,11 @@ object ContadaminationCompanion extends BDGCommandCompanion with Serializable {
   val commandDescription = "Find contamination in NGS read data using a bloom filter implementation."
 
   def apply(cmdLine: Array[String]) = {
-    new ContadaminationCommand(Args4j[ContadaminationArgs](cmdLine))
+    new Contadamination(Args4j[ContadaminationArgs](cmdLine))
   }
 }
 
-class ContadaminationCommand(protected val args: ContadaminationArgs) extends BDGSparkCommand[ContadaminationArgs] with Serializable {
+class Contadamination(protected val args: ContadaminationArgs) extends BDGSparkCommand[ContadaminationArgs] with Serializable {
   val companion = ContadaminationCompanion
 
   def run(sc: SparkContext) {
@@ -57,38 +57,4 @@ class ContadaminationCommand(protected val args: ContadaminationArgs) extends BD
 
     results.foreach(println)
   }
-}
-
-/**
- * Created by dahljo on 7/9/15.
- */
-object Contadamination extends App {
-
-  val conf = new SparkConf().setAppName("ContAdamination").setMaster("local[1]")
-  val sc = new SparkContext(conf)
-  val adamContext = new ADAMContext(sc)
-
-  // TODO Make configurable
-  val probOfFalsePositive = 0.0005
-  val windowSize = 30
-
-  // TODO Read from commandline
-  val readsPath = "2-5pM-3h_S3_L001_I2_001.fastq.bam.adam" // args(0)
-  val referencePaths = Array("src/test/resources/mt.fasta") //args.drop(1)
-
-  val reads = adamContext.loadAlignments(readsPath)
-
-  val bloomFilterBuilder = new BloomFilterBuilder(
-    adamContext,
-    probOfFalsePositive,
-    windowSize)
-
-  val contaminationFilters =
-    ContaminationFilterUtils.
-      createContaminationFilters(referencePaths, bloomFilterBuilder)
-
-  val results = ContaminationFilterUtils.
-    queryReadsAgainstFilters(windowSize, contaminationFilters, reads)
-
-  results.foreach(println)
 }
