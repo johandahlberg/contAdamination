@@ -32,9 +32,5 @@ class BloomFilterBuilderTest extends FunSuite with Assertions {
     assert(!bloomFilter.contains("Z" * windowSize).isTrue)
   }
 
-  test("loadAligment"){
-    import org.bdgenomics.adam.rdd.ADAMContext._
-    val reads = sc.loadAlignments("2-5pM-3h_S3_L001_I2_001.fastq.bam.adam")
-  }
 
 }
