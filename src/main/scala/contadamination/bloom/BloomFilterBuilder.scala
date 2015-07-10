@@ -12,9 +12,7 @@ import org.bdgenomics.formats.avro.NucleotideContigFragment
 /**
  * Created by dahljo on 7/9/15.
  */
-class BloomFilterBuilder(sparkContext: ADAMContext,
-                         probabilityOfFalsePositive: Double,
-    windowSize: Int) {
+class BloomFilterBuilder(sparkContext: ADAMContext, probabilityOfFalsePositive: Double, windowSize: Int) {
 
   private def referenceToWindow(reference: File, windowSize: Int): RDD[String] = {
     // TODO Check the fragment lenght option. /JD 20150709
@@ -29,17 +27,17 @@ class BloomFilterBuilder(sparkContext: ADAMContext,
     // TODO This should not be hard-coded. Make some reasonable
     // estimate based on k-mer complexity of genome perhaps?
     // JD 20150710
-    val numberOfEntries = 1000
-    val bloomFilterMonid =
-      BloomFilter.apply(numberOfEntries, probabilityOfFalsePositive)
+    val numberOfEntries = 100000
+    val bloomFilterMonoid =
+      BloomFilter(numberOfEntries, probabilityOfFalsePositive)
 
     val bloomFilters =
       for {
         window <- referenceToWindow(reference, windowSize)
-      } yield bloomFilterMonid.create(window)
+      } yield bloomFilterMonoid.create(window)
 
     val finalBloomFilter =
-      bloomFilters.reduce((x, y) => bloomFilterMonid.plus(x, y))
+      bloomFilters.reduce((x, y) => bloomFilterMonoid.plus(x, y))
 
     finalBloomFilter
   }
