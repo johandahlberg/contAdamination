@@ -31,4 +31,8 @@ case class ContaminationFilter(bloomFilter: BF, organism: String, totalNbrOfHits
     this.copy(totalNbrOfHits = totalNbrOfHits + 1, hits = hits + addThis)
   }
 
+  override def toString(): String = {
+    s"organism: $organism, totalNbrOfHits: $totalNbrOfHits, hits: $hits"
+  }
+
 }
