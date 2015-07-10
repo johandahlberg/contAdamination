@@ -12,13 +12,19 @@ import org.scalatest._
  */
 class BloomFilterBuilderTest extends ContadaminationSuite {
 
-  val conf = new SparkConf().setAppName("SparkQ").setMaster("local[1]")
-  val sc = new SparkContext(conf)
+  def createSparkContext(): SparkContext = {
+    val conf = new SparkConf().setAppName("SparkQ").setMaster("local[1]")
+    val sc = new SparkContext(conf)
+    sc
+  }
+
   val probOfFalsePositive = 0.0005
   val windowSize = 30
   val reference: File = new File("src/test/resources/mt.fasta")
 
   test("createBloomFilter") {
+
+    val sc = createSparkContext()
 
     val bloomfilterBuilder =
       new BloomFilterBuilder(
