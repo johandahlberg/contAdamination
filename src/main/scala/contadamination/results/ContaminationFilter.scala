@@ -20,8 +20,7 @@ object ContaminationFilterUtils {
     for {
       filter <- filters
       window <- windows
-    } yield
-      filter.query(readSequence)
+    } yield filter.query(readSequence)
   }
 
   def combOp(x: Array[ContaminationFilter], y: Array[ContaminationFilter]) = {
@@ -56,9 +55,7 @@ object ContaminationFilterUtils {
     contaminationFilters
   }
 
-
 }
-
 
 case class ContaminationFilter(bloomFilter: BF, organism: String, totalNbrOfQueries: Int = 0, hits: Int = 0) {
 
