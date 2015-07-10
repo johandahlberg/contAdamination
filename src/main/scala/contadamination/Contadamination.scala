@@ -37,7 +37,7 @@ class ContadaminationCommand(protected val args: ContadaminationArgs) extends BD
   val companion = ContadaminationCompanion
 
   def run(sc: SparkContext) {
-    println(args.windowSize + " " + args.probOfFalsePositive + " " + args.referencePaths + " " + args.readsPath);
+    //println("arguments: " + args.windowSize + " " + args.probOfFalsePositive + " " + args.referencePaths + " " + args.readsPath);
 
     val adamContext = new ADAMContext(sc)
 
