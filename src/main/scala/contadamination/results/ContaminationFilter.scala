@@ -10,15 +10,15 @@ import org.bdgenomics.formats.avro.AlignmentRecord
 object ContaminationFilterUtils {
 
   def add(x: ContaminationFilter, y: ContaminationFilter) =
-    x.copy(totalNbrOfHits = x.totalNbrOfHits + y.totalNbrOfHits, hits = x.hits + y.hits)
+    x.copy(totalNbrOfQueries = x.totalNbrOfQueries + y.totalNbrOfQueries, hits = x.hits + y.hits)
 
-  def seqOp(windowSize: Int)(filters: Array[ContaminationFilter], read: AlignmentRecord): Array[ContaminationFilter] = {
-    val windows = read.getSequence.sliding(windowSize)
+  def seqOp(windowSize: Int)(filters: Array[ContaminationFilter], readSequence: String): Array[ContaminationFilter] = {
+    val windows = readSequence.sliding(windowSize)
     for {
       filter <- filters
       window <- windows
     } yield
-      filter.query(read.getSequence)
+      filter.query(readSequence)
   }
 
   def combOp(x: Array[ContaminationFilter], y: Array[ContaminationFilter]) = {
@@ -27,18 +27,18 @@ object ContaminationFilterUtils {
 
 }
 
-case class ContaminationFilter(bloomFilter: BF, organism: String, totalNbrOfHits: Int = 0, hits: Int = 0) {
+case class ContaminationFilter(bloomFilter: BF, organism: String, totalNbrOfQueries: Int = 0, hits: Int = 0) {
 
-  def contaminationRate = hits.toDouble / totalNbrOfHits
+  def contaminationRate = hits.toDouble / totalNbrOfQueries
 
   def query(item: String): ContaminationFilter = {
     val isAHit = bloomFilter.contains(item).isTrue
     val addThis = if (isAHit) 1 else 0
-    this.copy(totalNbrOfHits = totalNbrOfHits + 1, hits = hits + addThis)
+    this.copy(totalNbrOfQueries = totalNbrOfQueries + 1, hits = hits + addThis)
   }
 
   override def toString(): String = {
-    s"organism: $organism, totalNbrOfHits: $totalNbrOfHits, hits: $hits"
+    s"organism: $organism, totalNbrOfHits: $totalNbrOfQueries, hits: $hits"
   }
 
 }

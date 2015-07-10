@@ -6,6 +6,7 @@ import contadamination.bloom.BloomFilterBuilder
 import contadamination.results.{ ContaminationFilterUtils, ContaminationFilter }
 import org.apache.spark.{ SparkConf, SparkContext }
 import org.bdgenomics.adam.rdd.ADAMContext
+import org.bdgenomics.formats.avro.AlignmentRecord
 
 /**
  * Created by dahljo on 7/9/15.
@@ -44,7 +45,16 @@ object Contadamination extends App {
       )
     }
 
-  val results = reads.aggregate(contaminationFilters)(ContaminationFilterUtils.seqOp(windowSize), ContaminationFilterUtils.combOp)
+  val seqOp =
+    (filters: Array[ContaminationFilter], read: AlignmentRecord) =>
+      ContaminationFilterUtils.seqOp(windowSize)(filters, read.getSequence)
+
+  val combOp =
+    (x: Array[ContaminationFilter], y: Array[ContaminationFilter]) =>
+      ContaminationFilterUtils.combOp(x, y)
+
+  val results = reads.
+    aggregate(contaminationFilters)(seqOp, combOp)
 
   results.foreach(println)
 }
