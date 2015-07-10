@@ -55,9 +55,7 @@ object ContaminationFilterUtils {
     contaminationFilters
   }
 
-
 }
-
 
 case class ContaminationFilter(bloomFilter: BF, organism: String, totalNbrOfQueries: Int = 0, hits: Int = 0) {
 
