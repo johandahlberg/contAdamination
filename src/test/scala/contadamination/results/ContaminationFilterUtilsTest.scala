@@ -1,12 +1,12 @@
 package contadamination.results
 
-import com.twitter.algebird.{BloomFilterMonoid, BF}
-import org.scalatest.{Assertions, FunSuite}
+import com.twitter.algebird.{BloomFilterMonoid}
+import contadamination.test.utils.ContadaminationSuite
 
 /**
  * Created by dahljo on 7/10/15.
  */
-class ContaminationFilterUtilsTest extends FunSuite with Assertions {
+class ContaminationFilterUtilsTest extends ContadaminationSuite {
 
 
   val windowSize = 3
@@ -15,8 +15,8 @@ class ContaminationFilterUtilsTest extends FunSuite with Assertions {
     BloomFilterMonoid(6, 10000, 1)
   val bloomFilterX = bloomFilterCreater.create("AAA")
   val bloomFilterY = bloomFilterCreater.create("TTT")
-  val contaminationFilterX = ContaminationFilter(bloomFilterX, "test_organism", totalNbrOfQueries = 1, hits = 2)
-  val contaminationFilterY = ContaminationFilter(bloomFilterY, "test_organism", totalNbrOfQueries = 3, hits = 5)
+  val contaminationFilterX = ContaminationFilter(bloomFilterX, "test_organism", totalNbrOfQueries = 2, hits = 1)
+  val contaminationFilterY = ContaminationFilter(bloomFilterY, "test_organism", totalNbrOfQueries = 5, hits = 3)
 
 
   test("testSeqOp") {
@@ -38,8 +38,8 @@ class ContaminationFilterUtilsTest extends FunSuite with Assertions {
 
   test("testAdd") {
     val result = ContaminationFilterUtils.add(contaminationFilterX, contaminationFilterY)
-    assert(result.hits == 7)
-    assert(result.totalNbrOfQueries == 4)
+    assert(result.hits == 4)
+    assert(result.totalNbrOfQueries == 7)
   }
 
 }

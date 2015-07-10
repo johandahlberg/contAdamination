@@ -3,13 +3,14 @@ package contadamination.bloom
 import java.io.File
 
 import com.twitter.algebird.ApproximateBoolean
+import contadamination.test.utils.ContadaminationSuite
 import org.apache.spark.{ SparkConf, SparkContext }
 import org.scalatest._
 
 /**
  * Created by dahljo on 7/9/15.
  */
-class BloomFilterBuilderTest extends FunSuite with Assertions {
+class BloomFilterBuilderTest extends ContadaminationSuite {
 
   val conf = new SparkConf().setAppName("SparkQ").setMaster("local[1]")
   val sc = new SparkContext(conf)

@@ -34,11 +34,16 @@ case class ContaminationFilter(bloomFilter: BF, organism: String, totalNbrOfQuer
   def query(item: String): ContaminationFilter = {
     val isAHit = bloomFilter.contains(item).isTrue
     val addThis = if (isAHit) 1 else 0
-    this.copy(totalNbrOfQueries = totalNbrOfQueries + 1, hits = hits + addThis)
+    val newContaminationFilter = this.copy(totalNbrOfQueries = this.totalNbrOfQueries + 1, hits = this.hits + addThis)
+    newContaminationFilter
   }
 
   override def toString(): String = {
-    s"organism: $organism, totalNbrOfHits: $totalNbrOfQueries, hits: $hits"
+
+    """organism: %s
+    |---------------------------------
+    |totalNbrOfHits: %d, hits: %d""".
+      format(organism, totalNbrOfQueries, hits).stripMargin
   }
 
 }
