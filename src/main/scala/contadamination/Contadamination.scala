@@ -3,7 +3,7 @@ package contadamination
 import java.io.File
 
 import contadamination.bloom.BloomFilterBuilder
-import contadamination.results.{ ContaminationFilterUtils, ContaminationFilter }
+import contadamination.results.{ContaminationFilterFactory, ContaminationFilterUtils, ContaminationFilter}
 import org.apache.spark.{ SparkConf, SparkContext }
 import org.bdgenomics.adam.rdd.ADAMContext
 import org.bdgenomics.formats.avro.AlignmentRecord
@@ -32,18 +32,9 @@ object Contadamination extends App {
     probOfFalsePositive,
     windowSize)
 
-  // Collection of bloom filters
   val contaminationFilters =
-    for {
-      filePath <- referencePaths
-    } yield {
-      val file: File = new File(filePath)
-      val filter = bloomFilterBuilder.createBloomFilter(file)
-      new ContaminationFilter(
-        bloomFilter = filter,
-        organism = file.getName
-      )
-    }
+    ContaminationFilterFactory.
+      createContaminationFilters(referencePaths, bloomFilterBuilder)
 
   val seqOp =
     (filters: Array[ContaminationFilter], read: AlignmentRecord) =>

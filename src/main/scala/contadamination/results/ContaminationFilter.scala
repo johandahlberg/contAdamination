@@ -1,8 +1,9 @@
 package contadamination.results
 
+import java.io.File
+
 import com.twitter.algebird.BF
-import org.apache.spark.rdd.RDD
-import org.bdgenomics.formats.avro.AlignmentRecord
+import contadamination.bloom.BloomFilterBuilder
 
 /**
  * Created by dahljo on 7/9/15.
@@ -23,6 +24,26 @@ object ContaminationFilterUtils {
 
   def combOp(x: Array[ContaminationFilter], y: Array[ContaminationFilter]) = {
     x.zip(y).map { tuple => add(tuple._1, tuple._2) }
+  }
+
+}
+
+object ContaminationFilterFactory {
+
+  def createContaminationFilters(referencePaths: Array[String], bloomFilterBuilder: BloomFilterBuilder): Array[ContaminationFilter] = {
+    // Collection of bloom filters
+    val contaminationFilters =
+      for {
+        filePath <- referencePaths
+      } yield {
+        val file: File = new File(filePath)
+        val filter = bloomFilterBuilder.createBloomFilter(file)
+        new ContaminationFilter(
+          bloomFilter = filter,
+          organism = file.getName
+        )
+      }
+    contaminationFilters
   }
 
 }
