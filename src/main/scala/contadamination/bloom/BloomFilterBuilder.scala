@@ -2,8 +2,7 @@ package contadamination.bloom
 
 import java.io.File
 
-import com.twitter.algebird.BloomFilterMonoid
-import com.twitter.algebird.BF
+import com.twitter.algebird.{BloomFilter, BloomFilterMonoid, BF}
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.bdgenomics.adam.rdd.ADAMContext
@@ -14,18 +13,8 @@ import org.bdgenomics.formats.avro.NucleotideContigFragment
  * Created by dahljo on 7/9/15.
  */
 class BloomFilterBuilder(sparkContext: ADAMContext,
-    probabablityOfFalsePositive: Double,
+                         probabilityOfFalsePositive: Double,
     windowSize: Int) {
-
-  case class BloomFilterConfig(numHashes: Int, width: Int, seed: Int)
-
-  private def createBloomFilterConfig(probabablityOfFalsePositive: Double): BloomFilterConfig = {
-    // TODO Make better reasonable deaults.
-    //    val width = 10000000
-    //    val numOfHashes = ((probabablityOfFalsePositive.toDouble / width.toDouble) * math.log(2)).toInt
-    //    println(s"numOfHashes: $numOfHashes")
-    BloomFilterConfig(numHashes = 6, width = 1000000, seed = 1)
-  }
 
   private def referenceToWindow(reference: File, windowSize: Int): RDD[String] = {
     // TODO Check the fragment lenght option. /JD 20150709
@@ -36,17 +25,21 @@ class BloomFilterBuilder(sparkContext: ADAMContext,
   }
 
   def createBloomFilter(reference: File): BF = {
-    val bloomFilterConfig = createBloomFilterConfig(probabablityOfFalsePositive)
-    val bloomFilterMonind =
-      BloomFilterMonoid(bloomFilterConfig.numHashes, bloomFilterConfig.width, bloomFilterConfig.seed)
+
+    // TODO This should not be hard-coded. Make some reasonable
+    // estimate based on k-mer complexity of genome perhaps?
+    // JD 20150710
+    val numberOfEntries = 1000
+    val bloomFilterMonid =
+      BloomFilter.apply(numberOfEntries, probabilityOfFalsePositive)
 
     val bloomFilters =
       for {
         window <- referenceToWindow(reference, windowSize)
-      } yield bloomFilterMonind.create(window)
+      } yield bloomFilterMonid.create(window)
 
     val finalBloomFilter =
-      bloomFilters.reduce((x, y) => bloomFilterMonind.plus(x, y))
+      bloomFilters.reduce((x, y) => bloomFilterMonid.plus(x, y))
 
     finalBloomFilter
   }
