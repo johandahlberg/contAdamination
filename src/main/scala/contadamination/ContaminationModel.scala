@@ -14,6 +14,8 @@ class ContaminationModel(val winSize: Int, val filters: Map[String, BF]) {
                tn: Int,       // True Negatives (number of rejected reads)
                rate: Double   // Contamination rate as the number of rejected reads over the total number of reads
   )
+
+  def ++(model: ContaminationModel): ContaminationModel = ???
   
   def filter(reads: RDD[AlignmentRecord]): (RDD[AlignmentRecord], Map[String, ContaminationStats]) = ???
   

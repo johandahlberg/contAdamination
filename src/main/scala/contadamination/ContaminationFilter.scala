@@ -36,7 +36,11 @@ class ContaminationFilter(val winSize: Int = 32, val fpr: Double = 0.1) {
         for (i <- 0 until frag1.getFragmentSequence.size) yield seq.substring(i, winSize)
     }).cache()
 
+    // TODO I have concerns about the high number of entries and the user asking for a low FPR
     val numEntries = slidingFragments.count().toInt
+    // TODO Broadcasting of the bloom filter monoid would be more efficient,
+    // the alternative to avoid serialization for every partition is to create it inside the map
+    // (not sure about the cost of its creation)
     val bfm = BloomFilter(numEntries, fpr)
     val bf = slidingFragments.map(bfm.create(_)).reduce((x, y) => x ++ y)
     val m = Map(contigName -> bf)
