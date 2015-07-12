@@ -1,13 +1,11 @@
 package contadamination
 
-import com.twitter.algebird.{BloomFilterMonoid, BloomFilter, BF}
-import contadamination.ContaminationModel.{ContaminationStats, FilterContext}
+import com.twitter.algebird.{ BloomFilterMonoid, BloomFilter, BF }
+import contadamination.ContaminationModel.{ ContaminationStats, FilterContext }
 import org.apache.spark.mllib.rdd.RDDFunctions
 import org.apache.spark.rdd.RDD
 import org.bdgenomics.adam.rdd.ADAMContext
 import org.bdgenomics.formats.avro.AlignmentRecord
-
-import scala.collection
 
 object ContaminationModel {
 
@@ -16,19 +14,19 @@ object ContaminationModel {
   val defaultSeed = 0
 
   case class FilterContext(
-                name: String,     // Contig name
-                path: String,     // Reference path
-                numEntries: Int,  // Number of sliding windows
-                fpr: Double,      // False Positive Rate
-                bloomFilter: BF            // Bloom filter
-  )
+    name: String, // Contig name
+    path: String, // Reference path
+    numEntries: Int, // Number of sliding windows
+    fpr: Double, // False Positive Rate
+    bloomFilter: BF // Bloom filter
+    )
 
   case class ContaminationStats(
-                numReads: Int,    // Total number of reads checked
-                tn: Int,          // True Negatives (number of rejected reads)
-                rate: Double      // Contamination rate as the number of rejected reads over the total number of reads
-  )
-  
+    numReads: Int, // Total number of reads checked
+    numNegatives: Int, // True Negatives (number of negative reads)
+    rate: Double // Contamination rate as the number of negative reads over the total number of reads
+    )
+
   /**
    * Build a ContaminationModel from a sequence of paths
    * @param paths Sequence of FASTA files for the reference contigs
@@ -40,7 +38,7 @@ object ContaminationModel {
   def apply(paths: Seq[String], winSize: Int = defaultWinSize, fpr: Double = defaultFpr)(implicit adamContext: ADAMContext): ContaminationModel = {
     paths.map(ContaminationModel(_, winSize, fpr)).reduce((x, y) => x ++ y)
   }
-  
+
   /**
    * Build a ContaminationModel from a path
    * @param path FASTA file with the reference contig
@@ -49,7 +47,7 @@ object ContaminationModel {
    * @param adamContext ADAM Context
    * @return a ContaminationModel
    */
-  def apply(path: String, winSize: Int = defaultWinSize, fpr: Double = defaultFpr)(implicit adamContext: ADAMContext): ContaminationModel = {
+  def apply(path: String, winSize: Int, fpr: Double)(implicit adamContext: ADAMContext): ContaminationModel = {
     val fragments = adamContext.loadFasta(path, winSize).cache()
     require(fragments.count() > 0, "At least one fragment is required")
 
@@ -57,9 +55,6 @@ object ContaminationModel {
     val contigName = fragments.first().getContig.getContigName
 
     val slidingFragments = new RDDFunctions(fragments).sliding(2).flatMap({
-      case Array() =>
-        Array()
-
       case Array(frag) =>
         val seq = frag.getFragmentSequence
         for (i <- 0 until seq.size) yield seq.substring(i, winSize - i) + List.fill(i)(".").mkString
@@ -78,7 +73,7 @@ object ContaminationModel {
     val width = BloomFilter.optimalWidth(numEntries, fpr)
     val numHashes = BloomFilter.optimalNumHashes(numEntries, width)
     slidingFragments
-      .map(ContaminationModel(numEntries, fpr, width, numHashes, winSize, path, contigName, _))
+      .map(frag => ContaminationModel.internalBuild(numEntries, fpr, numHashes, width, winSize, path, contigName, frag))
       .reduce((x, y) => x ++ y)
   }
 
@@ -93,9 +88,9 @@ object ContaminationModel {
    * @param fragment The initial fragment
    * @return a ContaminationModel
    */
-  private[this] def apply(numEntries: Int, fpr: Double, numHashes: Int, width: Int, winSize: Int,
-                          path: String, contigName: String, fragment: String) = {
-    
+  private def internalBuild(numEntries: Int, fpr: Double, numHashes: Int, width: Int, winSize: Int,
+    path: String, contigName: String, fragment: String) = {
+
     val bfm = new BloomFilterMonoid(numHashes, width, defaultSeed)
     val m = Map(contigName -> FilterContext(contigName, path, numEntries, fpr, bfm.create(fragment)))
     new ContaminationModel(winSize, m)
@@ -119,13 +114,13 @@ class ContaminationModel(val winSize: Int, val filters: Map[String, FilterContex
       else {
         val filterContext = filters(name)
         name -> filterContext.copy(
-                  bloomFilter = filterContext.bloomFilter ++ model.filters(name).bloomFilter)
+          bloomFilter = filterContext.bloomFilter ++ model.filters(name).bloomFilter)
       }
     }).toMap
     new ContaminationModel(winSize, m)
   }
 
-  def filter(reads: RDD[AlignmentRecord]): (RDD[AlignmentRecord], ContaminationStats) = {
+  def filterPositives(reads: RDD[AlignmentRecord]): (RDD[AlignmentRecord], ContaminationStats) = {
 
     val numReads = reads.cache().count().toInt
 
@@ -149,12 +144,38 @@ class ContaminationModel(val winSize: Int, val filters: Map[String, FilterContex
 
     val numPositiveReads = positiveReads.count().toInt
 
-    val tn = numReads - numPositiveReads
-    val stats = ContaminationStats(numReads, tn, tn.toDouble / numReads )
+    val numNegativeReads = numReads - numPositiveReads
+    val stats = ContaminationStats(numReads, numNegativeReads, numNegativeReads.toDouble / numReads)
 
     (positiveReads, stats)
   }
-  
+
+  def filterNegatives(reads: RDD[AlignmentRecord]): (RDD[AlignmentRecord], ContaminationStats) = {
+
+    val numReads = reads.cache().count().toInt
+
+    // TODO this should be broadcasted
+    val filtersValues = filters.values
+
+    val negativeReads = reads.flatMap({ read =>
+      val seq = read.getSequence
+      require(seq.size == winSize, "Reads length should be equal to the model sliding window size")
+
+      val numPositives = filtersValues.map(filterContext => if (filterContext.bloomFilter.contains(seq).isTrue) 1 else 0).sum
+
+      if (numPositives == 0)
+        Some(read)
+      else
+        None
+    }).cache()
+
+    val numNegativeReads = negativeReads.count().toInt
+
+    val stats = ContaminationStats(numReads, numNegativeReads, numNegativeReads.toDouble / numReads)
+
+    (negativeReads, stats)
+  }
+
   def stats(reads: RDD[AlignmentRecord]): ContaminationStats = {
     val numReads = reads.cache().count().toInt
 
@@ -173,7 +194,7 @@ class ContaminationModel(val winSize: Int, val filters: Map[String, FilterContex
       if (hasPositive) 1 else 0
     }).sum().toInt
 
-    val tn = numReads - numPositiveReads
-    ContaminationStats(numReads, tn, tn.toDouble / numReads )
+    val numNegativeReads = numReads - numPositiveReads
+    ContaminationStats(numReads, numNegativeReads, numNegativeReads.toDouble / numReads)
   }
 }
