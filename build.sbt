@@ -3,7 +3,7 @@ import com.typesafe.sbt.SbtNativePackager._
 
 name := """contAdamination"""
 
-scalaVersion := "2.11.7"
+scalaVersion := Version.scala
 
 resolvers +=
   "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/"
