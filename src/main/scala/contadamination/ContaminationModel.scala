@@ -54,6 +54,8 @@ object ContaminationModel {
     // TODO check that there is only one contigName per file (right now we assume there is only one contig per file)
     val contigName = fragments.first().getContig.getContigName
 
+
+    // TODO We should not be padding the string, but rather skip once we get partial hits. /JD 20150713
     val slidingFragments = new RDDFunctions(fragments).sliding(2).flatMap({
       case Array(frag) =>
         val seq = frag.getFragmentSequence
@@ -67,6 +69,7 @@ object ContaminationModel {
     }).cache()
 
     // TODO I have concerns about the high number of entries and the user asking for a low FPR
+    // TODO We actually need to count the unique elements, not all elements!
     val numEntries = slidingFragments.count().toInt
 
     // TODO check that the cost of creating a new bloomfilter per fragment is not too high
