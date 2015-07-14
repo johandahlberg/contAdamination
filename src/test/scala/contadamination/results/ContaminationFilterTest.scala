@@ -13,12 +13,13 @@ class ContaminationFilterTest extends ContadaminationSuite {
   val bloomFilterX = bloomFilterCreater.create("AAA")
   val contaminationFilterX = ContaminationFilter(bloomFilterX, "test_organism", totalNbrOfQueries = 2, hits = 1)
 
-  test("testContaminationRate") {
+  behavior of "ContaminationModel"
+
+  it should "compute a correct contamination rate" in {
     assert(contaminationFilterX.contaminationRate === 0.5)
   }
 
-  test("testQuery") {
-
+  it should "be possible to query the filter" in {
     val queryForTrippleA = contaminationFilterX.query("AAA")
     assert(queryForTrippleA.hits === contaminationFilterX.hits + 1)
     assert(queryForTrippleA.totalNbrOfQueries === contaminationFilterX.totalNbrOfQueries + 1)
@@ -27,9 +28,4 @@ class ContaminationFilterTest extends ContadaminationSuite {
     assert(queryForTrippleT.hits === contaminationFilterX.hits)
     assert(queryForTrippleT.totalNbrOfQueries === contaminationFilterX.totalNbrOfQueries + 1)
   }
-
-  test("testToString") {
-    pending
-  }
-
 }

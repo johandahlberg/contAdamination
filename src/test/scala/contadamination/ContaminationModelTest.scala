@@ -1,14 +1,14 @@
 package contadamination
 
-import contadamination.test.utils.AdamTestContext
+import contadamination.test.utils.{ContadaminationSuite, AdamTestContext}
 import org.scalatest.FlatSpec
 
 /**
  * Created by dahljo on 7/13/15.
  */
-class ContaminationModelTest extends FlatSpec with AdamTestContext {
+class ContaminationModelTest extends ContadaminationSuite with AdamTestContext {
 
-  behavior of "ContaminationModelTest"
+  behavior of "ContaminationModel"
 
   it should "build a model from a single path" in {
     val path = "src/test/resources/mt.fasta"

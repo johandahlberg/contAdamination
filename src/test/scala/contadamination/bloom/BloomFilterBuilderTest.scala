@@ -16,8 +16,9 @@ class BloomFilterBuilderTest extends ContadaminationSuite with AdamTestContext {
   val windowSize = 30
   val reference: File = new File("src/test/resources/mt.fasta")
 
-  test("createBloomFilter") {
+  behavior of "BloomFilterBuilder"
 
+  it should "construct a correct filer" in {
     val bloomfilterBuilder =
       new BloomFilterBuilder(
         adamContext,
@@ -30,5 +31,6 @@ class BloomFilterBuilderTest extends ContadaminationSuite with AdamTestContext {
     assert(bloomFilter.contains(first30bases).isTrue)
     assert(!bloomFilter.contains("Z" * windowSize).isTrue)
   }
+
 
 }

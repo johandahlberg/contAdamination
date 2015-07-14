@@ -2,27 +2,48 @@ package contadamination.test.utils
 
 import org.apache.spark.{SparkConf, SparkContext}
 import org.bdgenomics.adam.rdd.ADAMContext
-import org.scalatest.{BeforeAndAfterAll, Suite, BeforeAndAfter}
+import org.scalatest.BeforeAndAfter
 
-object AdamTestContextSingleton {
-
-  def createSparkContext(): SparkContext = {
-    val conf = new SparkConf().setAppName("contadamination").setMaster("local[1]")
-    val sc = new SparkContext(conf)
-    sc
-  }
-
-  val sparkContext = createSparkContext()
-  val adamContext = new ADAMContext(sparkContext)
-}
 
 /**
  * Created by dahljo on 7/13/15.
  */
-trait AdamTestContext {
+trait AdamTestContext extends BeforeAndAfter {
 
-  this: Suite =>
+  this: ContadaminationSuite =>
 
-  implicit val adamContext = AdamTestContextSingleton.adamContext
+  private val master = "local[2]"
+  private val appName = "contadamination"
+
+  private var sparkContext: SparkContext = _
+  implicit var adamContext: ADAMContext = _
+
+  before {
+    if(sparkContext == null) {
+      System.clearProperty("spark.driver.port")
+      System.clearProperty("spark.hostPort")
+      System.clearProperty("spark.master.port")
+
+      val conf = new SparkConf()
+        .setMaster(master)
+        .setAppName(appName)
+
+      sparkContext = new SparkContext(conf)
+      adamContext = new ADAMContext(sparkContext)
+    }
+
+  }
+
+  after {
+    if (sparkContext != null) {
+      sparkContext.stop()
+      sparkContext = null
+      adamContext = null
+
+      System.clearProperty("spark.driver.port")
+      System.clearProperty("spark.hostPort")
+      System.clearProperty("spark.master.port")
+    }
+  }
 
 }
