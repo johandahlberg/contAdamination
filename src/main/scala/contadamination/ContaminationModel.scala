@@ -7,7 +7,7 @@ import contadamination.ContaminationModel.{ ContaminationStats, FilterContext }
 import org.apache.spark.mllib.rdd.RDDFunctions
 import org.apache.spark.rdd.RDD
 import org.bdgenomics.adam.rdd.ADAMContext
-import org.bdgenomics.formats.avro.AlignmentRecord
+import org.bdgenomics.formats.avro.{NucleotideContigFragment, AlignmentRecord}
 import org.bdgenomics.adam.rdd.ADAMContext._
 
 object ContaminationModel {
@@ -51,6 +51,26 @@ object ContaminationModel {
   }
 
   /**
+   * Estimate (at this stage by just counting the k-mers) the number of
+   * entries that the bloom filer will need to handle.
+   * TODO Possibly this should be moved to some other class since it doesn't
+   * TODO really need to be a public method here. /JD 20150714
+   * @param fragments
+   * @return
+   */
+  def estimateNumberOfEntriesFromReference(fragments: RDD[NucleotideContigFragment], winSize: Int): Int = {
+    // TODO I have concerns about the high number of entries and the user asking for a low FPR
+    val numEntries = fragments.countKmers(winSize).count()
+    val numEntriesAsInt =
+      if(numEntries > Int.MaxValue)
+        throw new RuntimeException("Number of k-mers was larger than IntMax, the current implementation can't handle that.")
+      else
+        numEntries.toInt
+    numEntriesAsInt
+  }
+
+
+  /**
    * Build a ContaminationModel from a path
    * @param path FASTA file with the reference contig
    * @param winSize Sliding window size
@@ -65,20 +85,14 @@ object ContaminationModel {
 
     require(fragments.count() > 0, "At least one fragment is required")
 
-    // TODO I have concerns about the high number of entries and the user asking for a low FPR
-    val numEntries = fragments.countKmers(winSize).count()
-    val numEntriesAsInt =
-      if(numEntries > Int.MaxValue)
-        throw new RuntimeException("Number of k-mers was larger than IntMax, the current implementation can't handle that.")
-      else
-        numEntries.toInt
+    val numEntries = estimateNumberOfEntriesFromReference(fragments, winSize)
 
     // TODO check that the cost of creating a new bloomfilter per fragment is not too high
-    val width = BloomFilter.optimalWidth(numEntriesAsInt, fpr)
-    val numHashes = BloomFilter.optimalNumHashes(numEntriesAsInt, width)
+    val width = BloomFilter.optimalWidth(numEntries, fpr)
+    val numHashes = BloomFilter.optimalNumHashes(numEntries, width)
     fragments
       .map(frag =>
-      ContaminationModel.internalBuild(numEntriesAsInt, fpr, numHashes, width, winSize, path, frag.getFragmentSequence, fileName))
+      ContaminationModel.internalBuild(numEntries, fpr, numHashes, width, winSize, path, frag.getFragmentSequence, fileName))
       .reduce((x, y) => x ++ y)
   }
 
