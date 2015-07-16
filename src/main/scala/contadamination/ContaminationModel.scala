@@ -50,25 +50,6 @@ object ContaminationModel {
     paths.map(ContaminationModel(_, kmerSize, fpr)).reduce((x, y) => x ++ y)
   }
 
-  /**
-   * Estimate (at this stage by just counting the k-mers) the number of
-   * entries that the bloom filer will need to handle.
-   * TODO Possibly this should be moved to some other class since it doesn't
-   * TODO really need to be a public method here. /JD 20150714
-   * @param fragments
-   * @return
-   */
-  def estimateNumberOfEntriesFromReference(fragments: RDD[NucleotideContigFragment], winSize: Int): Int = {
-    // TODO I have concerns about the high number of entries and the user asking for a low FPR
-    val numEntries = fragments.countKmers(winSize).count()
-    val numEntriesAsInt =
-      if(numEntries > Int.MaxValue)
-        throw new RuntimeException("Number of k-mers was larger than IntMax, the current implementation can't handle that.")
-      else
-        numEntries.toInt
-    numEntriesAsInt
-  }
-
 
   /**
    * Build a ContaminationModel from a path
@@ -85,15 +66,21 @@ object ContaminationModel {
 
     require(fragments.count() > 0, "At least one fragment is required")
 
-    val numEntries = estimateNumberOfEntriesFromReference(fragments, winSize)
+    val kmersAndCounts = fragments.countKmers(winSize).cache()
+
+    val numEntries = kmersAndCounts.count()
+    require(numEntries > Int.MaxValue,
+      "Number of k-mers was larger than IntMax, the current implementation can't handle that.")
+    val numEntriesAsInt = numEntries.toInt
 
     // TODO check that the cost of creating a new bloomfilter per fragment is not too high
-    val width = BloomFilter.optimalWidth(numEntries, fpr)
-    val numHashes = BloomFilter.optimalNumHashes(numEntries, width)
-    fragments
-      .map(frag =>
-      ContaminationModel.internalBuild(numEntries, fpr, numHashes, width, winSize, path, frag.getFragmentSequence, fileName))
-      .reduce((x, y) => x ++ y)
+    val width = BloomFilter.optimalWidth(numEntriesAsInt, fpr)
+    val numHashes = BloomFilter.optimalNumHashes(numEntriesAsInt, width)
+    kmersAndCounts
+      .map {
+      case (kMer: String, _) =>
+        ContaminationModel.internalBuild(numEntriesAsInt, fpr, numHashes, width, winSize, path, kMer, fileName)
+    }.reduce((x, y) => x ++ y)
   }
 
   /**
@@ -103,15 +90,15 @@ object ContaminationModel {
    * @param numHashes Number of hashes for the BloomFilter
    * @param width Bit width of the BloomFilter
    * @param kmerSize Size of the sliding window
-   * @param fragment The initial fragment
+   * @param kMer The initial fragment
    * @param fileName Name of the file the filter was generated from.
    * @return a ContaminationModel
    */
   private def internalBuild(numEntries: Int, fpr: Double, numHashes: Int, width: Int, kmerSize: Int,
-                            path: String, fragment: String, fileName: String) = {
+                            path: String, kMer: String, fileName: String) = {
 
     val bfm = new BloomFilterMonoid(numHashes, width, defaultSeed)
-    val filterContext = FilterContext(fileName, path, numEntries, fpr, bfm.create(fragment))
+    val filterContext = FilterContext(fileName, path, numEntries, fpr, bfm.create(kMer))
     new ContaminationModel(kmerSize, filterContext)
   }
 }
@@ -119,29 +106,28 @@ object ContaminationModel {
 /**
  * Created by chris-zen on 11/07/2015.
  */
-class ContaminationModel(val winSize: Int, val filter: FilterContext) {
+class ContaminationModel(val kMerSize: Int, val filter: FilterContext) {
 
   private def kmersFromRead(read: String, kmerSize: Int): Iterator[String] =
     read.iterator.sliding(kmerSize).withPartial(false).map(_.mkString)
 
   def ++(model: ContaminationModel): ContaminationModel = {
-    require(this.winSize == model.winSize,
+    require(this.kMerSize == model.kMerSize,
       "It is not possible to merge models with different window size")
     require(this.filter.generatedFromFile == model.filter.generatedFromFile,
       "Not possible to add two models generated from different files.")
 
     val addedFilters = filter.copy(bloomFilter = this.filter.bloomFilter ++ model.filter.bloomFilter)
 
-    new ContaminationModel(winSize, addedFilters)
+    new ContaminationModel(kMerSize, addedFilters)
   }
 
-  private def generalFilter(reads: RDD[AlignmentRecord], kmerFilterCriteria: String => Boolean):
-    RDD[AlignmentRecord] = {
+  private def generalFilter(reads: RDD[AlignmentRecord])(kmerFilterCriteria: String => Boolean): RDD[AlignmentRecord] = {
 
     val matchingReads = reads.flatMap({ read =>
       val seq = read.getSequence
 
-      val kmersInRead = kmersFromRead(seq, this.winSize)
+      val kmersInRead = kmersFromRead(seq, this.kMerSize)
       val isAHit = kmersInRead.exists(kmer => kmerFilterCriteria(kmer))
 
       if (isAHit)
@@ -162,7 +148,7 @@ class ContaminationModel(val winSize: Int, val filter: FilterContext) {
   def filterPositives(reads: RDD[AlignmentRecord]): (RDD[AlignmentRecord], ContaminationStats) = {
 
     val numReads = reads.cache().count()
-    val positiveReads = generalFilter(reads, positiveReadCriteria)
+    val positiveReads = generalFilter(reads)(positiveReadCriteria)
     val numPositiveReads = positiveReads.count()
     val numNegativeReads = numReads - numPositiveReads
     val stats = ContaminationStats(numReads, numNegativeReads, numNegativeReads.toDouble / numReads)
@@ -173,7 +159,7 @@ class ContaminationModel(val winSize: Int, val filter: FilterContext) {
   def filterNegatives(reads: RDD[AlignmentRecord]): (RDD[AlignmentRecord], ContaminationStats) = {
 
     val numReads = reads.cache().count()
-    val negativeReads = generalFilter(reads, negativeReadCriteria)
+    val negativeReads = generalFilter(reads)(negativeReadCriteria)
     val numNegativeReads = negativeReads.count()
     val stats = ContaminationStats(numReads, numNegativeReads, numNegativeReads.toDouble / numReads)
 
@@ -184,7 +170,7 @@ class ContaminationModel(val winSize: Int, val filter: FilterContext) {
     val numReads = reads.cache().count()
 
     val numPositiveReads =
-      generalFilter(reads, positiveReadCriteria).count()
+      generalFilter(reads)(positiveReadCriteria).count()
     val numNegativeReads = numReads - numPositiveReads
 
     ContaminationStats(numReads, numNegativeReads, numNegativeReads.toDouble / numReads)
