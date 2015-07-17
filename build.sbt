@@ -14,6 +14,8 @@ releaseSettings
 
 scalariformSettings
 
+parallelExecution in Test := false
+
 // TODO Fix this once the Adam dependency has 
 //       correct checksums. /JD 20150711
 checksums := Nil

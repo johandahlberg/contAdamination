@@ -3,32 +3,25 @@ package contadamination.bloom
 import java.io.File
 
 import com.twitter.algebird.ApproximateBoolean
-import contadamination.test.utils.ContadaminationSuite
+import contadamination.test.utils.{AdamTestContext, ContadaminationSuite}
 import org.apache.spark.{ SparkConf, SparkContext }
 import org.scalatest._
 
 /**
  * Created by dahljo on 7/9/15.
  */
-class BloomFilterBuilderTest extends ContadaminationSuite {
-
-  def createSparkContext(): SparkContext = {
-    val conf = new SparkConf().setAppName("SparkQ").setMaster("local[1]")
-    val sc = new SparkContext(conf)
-    sc
-  }
+class BloomFilterBuilderTest extends ContadaminationSuite with AdamTestContext {
 
   val probOfFalsePositive = 0.0005
   val windowSize = 30
   val reference: File = new File("src/test/resources/mt.fasta")
 
-  test("createBloomFilter") {
+  behavior of "BloomFilterBuilder"
 
-    val sc = createSparkContext()
-
+  it should "construct a correct filer" in {
     val bloomfilterBuilder =
       new BloomFilterBuilder(
-        sc,
+        adamContext,
         probOfFalsePositive,
         windowSize)
 
@@ -38,5 +31,6 @@ class BloomFilterBuilderTest extends ContadaminationSuite {
     assert(bloomFilter.contains(first30bases).isTrue)
     assert(!bloomFilter.contains("Z" * windowSize).isTrue)
   }
+
 
 }
